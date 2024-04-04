@@ -90,7 +90,7 @@ func shim(c *gin.Context) {
 		ts := p.Mvalidtime.UnixMilli()
 
 		if ts > now-p.Mperiod*2 {
-			res = append(res, ParkingResponse[string]{Scode: p.Scode, Mvalue: "/"})
+			res = append(res, ParkingResponse[string]{Scode: p.Scode, Mvalue: "--"})
 
 		} else if p.Mvalue < float64(threshold) {
 			res = append(res, ParkingResponse[float64]{Scode: p.Scode, Mvalue: 0})
