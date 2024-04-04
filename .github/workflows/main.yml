@@ -1,0 +1,70 @@
+name: CI/CD
+
+on:
+  push:
+
+env:
+  PROJECT_NAME: realtime-parking-bz-shim
+  DOCKER_IMAGE: ghcr.io/${{ github.repository }}/${{ github.event.repository.name }}
+  DOCKER_TAG: ${{ github.sha }}
+  SERVER_PORT: 1094
+
+jobs:
+  deploy-test:
+    runs-on: ubuntu-22.04
+    if: github.ref == 'refs/heads/main'
+    concurrency: deploy-test
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v2
+
+      - name: Setup go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: src/go.mod
+
+      - name: Setup Golang caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-golang-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-golang-
+
+      - name: Create .env file
+        uses: noi-techpark/github-actions/env-file@v2
+        env:
+          X_COMPOSE_PROJECT_NAME: ${{ env.PROJECT_NAME }}
+          X_DOCKER_IMAGE: ${{ env.DOCKER_IMAGE }}
+          X_DOCKER_TAG: ${{ env.DOCKER_TAG }}
+            
+          X_SERVER_PORT: ${{ env.SERVER_PORT}}
+
+          X_GIN_MODE: release
+          X_LOG_LEVEL: WARNING
+
+          X_NINJA_BASE_URL: https://mobility.api.opendatahub.testingmachine.eu
+          X_NINJA_REFERER: realtime-parking-bz-shim
+          X_THRESHOLD: 10
+
+
+      - name: Build go application
+        run: go build -o main .
+        working-directory: src
+
+      - name: Build and push images
+        uses: noi-techpark/github-actions/docker-build-and-push@v2
+        with:
+          docker-username: ${{ github.actor }}
+          docker-password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy application
+        uses: noi-techpark/github-actions/docker-deploy@v2
+        with:
+          hosts: 'test'
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          docker-username: 'noi-techpark-bot'
+          docker-password: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
+          project-name: ${{ env.PROJECT_NAME }}
