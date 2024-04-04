@@ -35,9 +35,9 @@ type OdhParking struct {
 		ParkingCharging     bool   `json:"parkingcharging"`
 		ParkingSurveillance bool   `json:"parkingsurveillance"`
 	} `json:"smetadata"`
-	Mvalue     float64 `json:"mvalue"`
-	Mperiod    int64   `json:"mperiod"`
-	Mvalidtime string  `json:"mvalidtime"`
+	Mvalue     float64         `json:"mvalue"`
+	Mperiod    int64           `json:"mperiod"`
+	Mvalidtime ninja.NinjaTime `json:"mvalidtime"`
 }
 
 type ParkingResponse[T string | float64] struct {
@@ -87,11 +87,7 @@ func shim(c *gin.Context) {
 	now := time.Now().UnixMilli()
 
 	for _, p := range parking {
-		t, err := time.Parse("2006-01-02 15:04:05.000+0000", p.Mvalidtime)
-		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
-		}
-		ts := t.UnixMilli()
+		ts := p.Mvalidtime.UnixMilli()
 
 		if ts > now-p.Mperiod*2 {
 			res = append(res, ParkingResponse[string]{Scode: p.Scode, Mvalue: "/"})
