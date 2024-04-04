@@ -40,7 +40,7 @@ type OdhParking struct {
 	Mvalidtime ninja.NinjaTime `json:"mvalidtime"`
 }
 
-type ParkingResponse[T string | float64] struct {
+type ParkingResponse[T string | int32] struct {
 	Scode  string `json:"scode"`
 	Mvalue T      `json:"mvalue"`
 }
@@ -89,15 +89,18 @@ func shim(c *gin.Context) {
 	for _, p := range parking {
 		ts := p.Mvalidtime.UnixMilli()
 
+		// use occupied and calc free
+		// because original data collector sends occupied,
+		// so free gets calculated by elaboration, which creates delay of 5 minutes
+		free := p.Smeta.Capacity - int32(p.Mvalue)
+
 		if ts > now-p.Mperiod*2 {
 			res = append(res, ParkingResponse[string]{Scode: p.Scode, Mvalue: "--"})
-
-		} else if p.Mvalue < float64(threshold) {
-			res = append(res, ParkingResponse[float64]{Scode: p.Scode, Mvalue: 0})
+		} else if free < int32(threshold) {
+			res = append(res, ParkingResponse[int32]{Scode: p.Scode, Mvalue: 0})
 		} else {
-			res = append(res, ParkingResponse[float64]{Scode: p.Scode, Mvalue: p.Mvalue})
+			res = append(res, ParkingResponse[int32]{Scode: p.Scode, Mvalue: free})
 		}
-
 	}
 
 	c.JSON(http.StatusOK, res)
@@ -109,7 +112,7 @@ func getOdhParking() ([]OdhParking, error) {
 	req.StationTypes = []string{"ParkingStation"}
 
 	req.Where = "and(sactive.eq.true,scode.in.(" + strings.Join(stations, ",") + "))"
-	req.DataTypes = []string{"free"}
+	req.DataTypes = []string{"occupied"}
 
 	var res ninja.NinjaResponse[[]OdhParking]
 	err := ninja.Latest(req, &res)
