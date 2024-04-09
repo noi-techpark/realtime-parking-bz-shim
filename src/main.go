@@ -94,7 +94,7 @@ func shim(c *gin.Context) {
 		// so free gets calculated by elaboration, which creates delay of 5 minutes
 		free := p.Smeta.Capacity - int32(p.Mvalue)
 
-		if ts > now-p.Mperiod*2 {
+		if ts < now-p.Mperiod*2*1000 {
 			res = append(res, ParkingResponse[string]{Scode: p.Scode, Mvalue: "--"})
 		} else if free < int32(threshold) {
 			res = append(res, ParkingResponse[int32]{Scode: p.Scode, Mvalue: 0})
