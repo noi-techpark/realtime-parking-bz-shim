@@ -17,8 +17,6 @@ import (
 	"opendatahub/realtime-parking-bz-shim/ninja"
 )
 
-var stations = []string{"\"103\"", "\"104\"", "\"105\"", "\"106\""}
-
 type OdhParking struct {
 	Scode   string `json:"scode"`
 	Sname   string `json:"sname"`
@@ -46,7 +44,10 @@ type ParkingResponse[T string | int32] struct {
 	Mvalue T      `json:"mvalue"`
 }
 
-var threshold_str string = os.Getenv("THRESHOLD")
+var stationsCodesStr string = os.Getenv("STATION_CODES")
+var thresholdStr string = os.Getenv("THRESHOLD")
+
+var stationString string
 var threshold int
 
 func main() {
@@ -61,8 +62,17 @@ func main() {
 		r.Use(sloggin.New(slog.Default()))
 	}
 
+	// convert stationCodesStr from env to comma separated string with escape backticks
+	stationCodes := strings.Split(stationsCodesStr, ",")
+	for i, s := range stationCodes {
+		stationString += "\"" + s + "\""
+		if i < len(stationCodes)-1 {
+			stationString += ","
+		}
+	}
+
 	var err error
-	threshold, err = strconv.Atoi(threshold_str)
+	threshold, err = strconv.Atoi(thresholdStr)
 	if err != nil {
 		slog.Error("Error while parsing threshold from env", err)
 	}
@@ -112,7 +122,7 @@ func getOdhParking() ([]OdhParking, error) {
 	req.Limit = -1
 	req.StationTypes = []string{"ParkingStation"}
 
-	req.Where = "and(sactive.eq.true,scode.in.(" + strings.Join(stations, ",") + "))"
+	req.Where = "and(sactive.eq.true,scode.in.(" + stationString + "))"
 	req.DataTypes = []string{"occupied"}
 
 	var res ninja.NinjaResponse[[]OdhParking]
