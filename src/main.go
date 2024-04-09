@@ -42,6 +42,7 @@ type OdhParking struct {
 
 type ParkingResponse[T string | int32] struct {
 	Scode  string `json:"scode"`
+	Sname  string `json:"sname"`
 	Mvalue T      `json:"mvalue"`
 }
 
@@ -95,11 +96,11 @@ func shim(c *gin.Context) {
 		free := p.Smeta.Capacity - int32(p.Mvalue)
 
 		if ts < now-p.Mperiod*2*1000 {
-			res = append(res, ParkingResponse[string]{Scode: p.Scode, Mvalue: "--"})
+			res = append(res, ParkingResponse[string]{Scode: p.Scode, Sname: p.Sname, Mvalue: "--"})
 		} else if free < int32(threshold) {
-			res = append(res, ParkingResponse[int32]{Scode: p.Scode, Mvalue: 0})
+			res = append(res, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalue: 0})
 		} else {
-			res = append(res, ParkingResponse[int32]{Scode: p.Scode, Mvalue: free})
+			res = append(res, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalue: free})
 		}
 	}
 
