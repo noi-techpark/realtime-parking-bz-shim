@@ -38,10 +38,11 @@ type OdhParking struct {
 	Mvalidtime ninja.NinjaTime `json:"mvalidtime"`
 }
 
-type ParkingResponse[T string | int32] struct {
-	Scode  string `json:"scode"`
-	Sname  string `json:"sname"`
-	Mvalue T      `json:"mvalue"`
+type ParkingResponse struct {
+	Scode      string `json:"scode"`
+	Sname      string `json:"sname"`
+	Mvalue     int32  `json:"mvalue"`
+	Mvalidtime string `json:"mvalidtime"`
 }
 
 var stationsCodesStr string = os.Getenv("STATION_CODES")
@@ -88,7 +89,7 @@ func health(c *gin.Context) {
 }
 
 func shim(c *gin.Context) {
-	var res []interface{}
+	res := ninja.NinjaResponse[[]ParkingResponse]{Offset: 0, Limit: 200}
 
 	parking, err := getOdhParking()
 	if err != nil {
@@ -105,13 +106,18 @@ func shim(c *gin.Context) {
 		// so free gets calculated by elaboration, which creates delay of 5 minutes
 		free := p.Smeta.Capacity - int32(p.Mvalue)
 
+		pr := ParkingResponse{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format("2006-01-02 15:04:05.000-0700"), Mvalue: free}
+
+		// override Mvalue for special conditions
 		if ts < now-p.Mperiod*2*1000 {
-			res = append(res, ParkingResponse[string]{Scode: p.Scode, Sname: p.Sname, Mvalue: "--"})
+			pr.Mvalue = -1
 		} else if free < int32(threshold) {
-			res = append(res, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalue: 0})
-		} else {
-			res = append(res, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalue: free})
+			pr.Mvalue = 0
+		} else if free > 999 {
+			pr.Mvalue = 999
 		}
+
+		res.Data = append(res.Data, pr)
 	}
 
 	c.JSON(http.StatusOK, res)
