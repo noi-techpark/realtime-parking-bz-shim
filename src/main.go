@@ -47,9 +47,11 @@ type ParkingResponse[T string | int32] struct {
 
 var stationsCodesStr string = os.Getenv("STATION_CODES")
 var thresholdStr string = os.Getenv("THRESHOLD")
+var testValueStr string = os.Getenv("TEST_VALUE")
 
 var stationString string
 var threshold int
+var testValue int
 
 func main() {
 	InitLogger()
@@ -76,6 +78,10 @@ func main() {
 	threshold, err = strconv.Atoi(thresholdStr)
 	if err != nil {
 		slog.Error("Error while parsing threshold from env", err)
+	}
+	testValue, err = strconv.Atoi(testValueStr)
+	if err != nil {
+		slog.Error("Error while parsing testvalue from env", err)
 	}
 
 	r.Use(gin.Recovery())
@@ -108,7 +114,7 @@ func shim(c *gin.Context) {
 
 		// overwrite scode 105 for testing purposes
 		if p.Scode == "105" {
-			res.Data = append(res.Data, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: 2})
+			res.Data = append(res.Data, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: int32(testValue)})
 		} else if ts < now-p.Mperiod*2*1000 {
 			// res.Data = append(res.Data, ParkingResponse[string]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: "--"})
 			res.Data = append(res.Data, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: -1})

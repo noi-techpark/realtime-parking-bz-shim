@@ -47,6 +47,7 @@ jobs:
           X_NINJA_REFERER: realtime-parking-bz-shim
           X_THRESHOLD: 10
           X_STATION_CODES: "103,104,105,106,108,115,116"
+          X_TEST_VALUE: 2
 
 
       - name: Build go application
@@ -107,6 +108,7 @@ jobs:
           X_NINJA_REFERER: realtime-parking-bz-shim
           X_THRESHOLD: 10
           X_STATION_CODES: "103,104,105,106,108,115,116"
+          X_TEST_VALUE: 2
 
 
       - name: Build go application
