@@ -106,7 +106,10 @@ func shim(c *gin.Context) {
 		// so free gets calculated by elaboration, which creates delay of 5 minutes
 		free := p.Smeta.Capacity - int32(p.Mvalue)
 
-		if ts < now-p.Mperiod*2*1000 {
+		// overwrite scode 105 for testing purposes
+		if p.Scode == "105" {
+			res.Data = append(res.Data, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: 2})
+		} else if ts < now-p.Mperiod*2*1000 {
 			// res.Data = append(res.Data, ParkingResponse[string]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: "--"})
 			res.Data = append(res.Data, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: -1})
 		} else if free < int32(threshold) {
@@ -116,6 +119,7 @@ func shim(c *gin.Context) {
 		} else {
 			res.Data = append(res.Data, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: free})
 		}
+
 	}
 
 	c.JSON(http.StatusOK, res)
