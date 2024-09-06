@@ -46,7 +46,7 @@ jobs:
           X_NINJA_BASE_URL: https://mobility.api.opendatahub.testingmachine.eu
           X_NINJA_REFERER: realtime-parking-bz-shim
           X_THRESHOLD: 10
-          X_STATION_CODES: "103,104,105,106,108,115,116,parking-bz:8:0"
+          X_STATION_CODES: "103,104,105,106,107,108,115,116,parking-bz:8:0"
 
       - name: Build go application
         run: go build -o main .
@@ -105,7 +105,7 @@ jobs:
           X_NINJA_BASE_URL: https://mobility.api.opendatahub.com
           X_NINJA_REFERER: realtime-parking-bz-shim
           X_THRESHOLD: 10
-          X_STATION_CODES: "103,104,105,106,108,115,116,parking-bz:8:0"
+          X_STATION_CODES: "103,104,105,106,107,108,115,116,parking-bz:8:0"
 
       - name: Build go application
         run: go build -o main .
