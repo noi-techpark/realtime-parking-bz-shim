@@ -106,6 +106,11 @@ func shim(c *gin.Context) {
 		// so free gets calculated by elaboration, which creates delay of 5 minutes
 		free := p.Smeta.Capacity - int32(p.Mvalue)
 
+		// Super ugly hotfix to exclude laurin old timeseries with period 300
+		if p.Scode == "105" && p.Mperiod == 300 {
+			continue
+		}
+
 		if ts < now-p.Mperiod*2*1000 {
 			// res.Data = append(res.Data, ParkingResponse[string]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: "--"})
 			res.Data = append(res.Data, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: -1})

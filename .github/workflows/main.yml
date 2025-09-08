@@ -16,21 +16,6 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v2
 
-      - name: Setup go
-        uses: actions/setup-go@v4
-        with:
-          go-version-file: src/go.mod
-
-      - name: Setup Golang caches
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-golang-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-golang-
-
       - name: Create .env file
         uses: noi-techpark/github-actions/env-file@v2
         env:
@@ -47,10 +32,6 @@ jobs:
           X_NINJA_REFERER: realtime-parking-bz-shim
           X_THRESHOLD: 10
           X_STATION_CODES: "103,104,105,106,107,108,115,116,parking-bz:8:0"
-
-      - name: Build go application
-        run: go build -o main .
-        working-directory: src
 
       - name: Build and push images
         uses: noi-techpark/github-actions/docker-build-and-push@v2
@@ -75,21 +56,6 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v2
 
-      - name: Setup go
-        uses: actions/setup-go@v4
-        with:
-          go-version-file: src/go.mod
-
-      - name: Setup Golang caches
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-golang-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-golang-
-
       - name: Create .env file
         uses: noi-techpark/github-actions/env-file@v2
         env:
@@ -106,10 +72,6 @@ jobs:
           X_NINJA_REFERER: realtime-parking-bz-shim
           X_THRESHOLD: 10
           X_STATION_CODES: "103,104,105,106,107,108,115,116,parking-bz:8:0"
-
-      - name: Build go application
-        run: go build -o main .
-        working-directory: src
 
       - name: Build and push images
         uses: noi-techpark/github-actions/docker-build-and-push@v2

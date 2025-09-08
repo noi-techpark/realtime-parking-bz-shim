@@ -1,15 +1,19 @@
-FROM golang:1.21.5-bookworm as base
+FROM golang:1.23-bookworm AS base
 
-# install if docker host doesn't has libc6 installed
-RUN apt-get update && apt-get install -y libc6
-RUN apt-get clean
-EXPOSE 8080
+# build executable
+FROM base AS build-env
+WORKDIR /app
+COPY src/. .
+RUN go mod download
+RUN CGO_ENABLED=0 GOOS=linux go build -o main
 
-FROM base as build
-WORKDIR app
-COPY src/main main
-CMD [ "./main"]
+# build published image with binary from previous stage
+FROM alpine:latest AS build
+RUN apk add curl
+WORKDIR /app
+COPY --from=build-env /app/main .
+ENTRYPOINT [ "./main" ]
 
-FROM base as debug
+FROM base AS debug
 WORKDIR /code
 CMD [ "go", "run", "."]
