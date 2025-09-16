@@ -31,7 +31,7 @@ jobs:
           X_NINJA_BASE_URL: https://mobility.api.opendatahub.testingmachine.eu
           X_NINJA_REFERER: realtime-parking-bz-shim
           X_THRESHOLD: 10
-          X_STATION_CODES: "103,104,105,106,107,108,115,116,parking-bz:8:0"
+          X_STATION_CODES: "103,104,105,106,107,108,115,116,parking-bz:8:0,609883_0"
 
       - name: Build and push images
         uses: noi-techpark/github-actions/docker-build-and-push@v2
