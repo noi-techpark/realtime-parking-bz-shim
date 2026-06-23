@@ -46,10 +46,10 @@ type ParkingResponse[T string | int32] struct {
 }
 
 var stationsCodesStr string = os.Getenv("STATION_CODES")
-var thresholdStr string = os.Getenv("THRESHOLD")
+var defaultThresholdStr string = os.Getenv("DEFAULT_THRESHOLD")
 
 var stationString string
-var threshold int
+var defaultThreshold int
 
 func main() {
 	InitLogger()
@@ -73,7 +73,7 @@ func main() {
 	}
 
 	var err error
-	threshold, err = strconv.Atoi(thresholdStr)
+	defaultThreshold, err = strconv.Atoi(defaultThresholdStr)
 	if err != nil {
 		slog.Error("Error while parsing threshold from env", err)
 	}
@@ -82,8 +82,10 @@ func main() {
 
 	r.GET("/", shim)
 	r.GET("/health", health)
+	r.GET("/v2/", shimV2)
 	r.Run()
 }
+
 func health(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
@@ -114,7 +116,7 @@ func shim(c *gin.Context) {
 		if ts < now-p.Mperiod*2*1000 {
 			// res.Data = append(res.Data, ParkingResponse[string]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: "--"})
 			res.Data = append(res.Data, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: -1})
-		} else if free < int32(threshold) {
+		} else if free < int32(defaultThreshold) {
 			res.Data = append(res.Data, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: 0})
 		} else if free > 999 {
 			res.Data = append(res.Data, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: 999})
@@ -127,12 +129,77 @@ func shim(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
+// shimV2 supports:
+//   - ?threshold=N  override the zero-display threshold (defaults to DEFAULT_THRESHOLD env)
+//   - ?where=...    ODH where-filter passed through as-is (defaults to sactive.eq.true)
+func shimV2(c *gin.Context) {
+	threshold := defaultThreshold
+	if tStr := c.Query("threshold"); tStr != "" {
+		t, err := strconv.Atoi(tStr)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid threshold parameter"})
+			return
+		}
+		threshold = t
+	}
+
+	whereFilter := c.Query("where")
+	if whereFilter == "" {
+		whereFilter = "sactive.eq.true"
+	}
+
+	res := ninja.NinjaResponse[[]any]{Offset: 0, Limit: 200}
+
+	parking, err := getOdhParkingV2(whereFilter)
+	if err != nil {
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	now := time.Now().UnixMilli()
+
+	for _, p := range parking {
+		ts := p.Mvalidtime.UnixMilli()
+
+		free := p.Smeta.Capacity - int32(p.Mvalue)
+
+		// Super ugly hotfix to exclude laurin old timeseries with period 300
+		if p.Scode == "105" && p.Mperiod == 300 {
+			continue
+		}
+
+		if ts < now-p.Mperiod*2*1000 {
+			res.Data = append(res.Data, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: -1})
+		} else if free < int32(threshold) {
+			res.Data = append(res.Data, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: 0})
+		} else if free > 999 {
+			res.Data = append(res.Data, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: 999})
+		} else {
+			res.Data = append(res.Data, ParkingResponse[int32]{Scode: p.Scode, Sname: p.Sname, Mvalidtime: p.Mvalidtime.Format(ninja.RequestTimeFormat), Mvalue: free})
+		}
+	}
+
+	c.JSON(http.StatusOK, res)
+}
+
 func getOdhParking() ([]OdhParking, error) {
 	req := ninja.DefaultNinjaRequest()
 	req.Limit = -1
 	req.StationTypes = []string{"ParkingStation"}
 
 	req.Where = "and(sactive.eq.true,scode.in.(" + stationString + "))"
+	req.DataTypes = []string{"occupied"}
+
+	var res ninja.NinjaResponse[[]OdhParking]
+	err := ninja.Latest(req, &res)
+	return res.Data, err
+}
+
+func getOdhParkingV2(whereFilter string) ([]OdhParking, error) {
+	req := ninja.DefaultNinjaRequest()
+	req.Limit = -1
+	req.StationTypes = []string{"ParkingStation"}
+	req.Where = whereFilter
 	req.DataTypes = []string{"occupied"}
 
 	var res ninja.NinjaResponse[[]OdhParking]

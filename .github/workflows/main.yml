@@ -6,84 +6,129 @@ env:
   PROJECT_NAME: realtime-parking-bz-shim
   DOCKER_IMAGE: ghcr.io/${{ github.repository }}/${{ github.event.repository.name }}
   DOCKER_TAG: ${{ github.sha }}
+  KUBERNETES_NAMESPACE: parking
+  K8S_NAME: realtime-parking-bz-shim
+  VALUES_YAML: infrastructure/helm/values.yaml
 
 jobs:
-  deploy-test:
-    runs-on: ubuntu-22.04
-    if: github.ref == 'refs/heads/main'
-    concurrency: deploy-test
+  build:
+    runs-on: ubuntu-24.04
+    concurrency: ${{ github.ref }}-build
+    permissions:
+      packages: write
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v2
-
-      - name: Create .env file
-        uses: noi-techpark/github-actions/env-file@v2
-        env:
-          X_COMPOSE_PROJECT_NAME: ${{ env.PROJECT_NAME }}
-          X_DOCKER_IMAGE: ${{ env.DOCKER_IMAGE }}
-          X_DOCKER_TAG: ${{ env.DOCKER_TAG }}
-            
-          X_SERVER_PORT: 1094
-
-          X_GIN_MODE: release
-          X_LOG_LEVEL: WARNING
-
-          X_NINJA_BASE_URL: https://mobility.api.opendatahub.testingmachine.eu
-          X_NINJA_REFERER: realtime-parking-bz-shim
-          X_THRESHOLD: 10
-          X_STATION_CODES: "103,104,105,106,107,108,115,116,parking-bz:8:0,609883_0,108"
+        uses: actions/checkout@v4
 
       - name: Build and push images
         uses: noi-techpark/github-actions/docker-build-and-push@v2
         with:
+          working-directory: infrastructure
           docker-username: ${{ github.actor }}
           docker-password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Deploy application
-        uses: noi-techpark/github-actions/docker-deploy@v2
+  deploy-test:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-24.04
+    concurrency: ${{ env.K8S_NAME }}-deploy-test
+    environment: test
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Write environment-specific Helm values
+        run: |
+          cat <<EOF > override.yml
+          image:
+            repository: ${{ env.DOCKER_IMAGE }}
+            tag: ${{ env.DOCKER_TAG }}
+            pullPolicy: IfNotPresent
+          env:
+            GIN_MODE: release
+            LOG_LEVEL: WARNING
+            NINJA_BASE_URL: https://mobility.api.opendatahub.testingmachine.eu
+            NINJA_REFERER: realtime-parking-bz-shim
+            DEFAULT_THRESHOLD: "10"
+            STATION_CODES: "103,104,105,106,107,108,115,116,parking-bz:8:0,609883_0,108"
+          ingress:
+            enabled: true
+            annotations:
+              cert-manager.io/issuer: "letsencrypt-prod"
+            className: nginx
+            tls:
+              - hosts:
+                  - realtime-parking-bz.api.dev.testingmachine.eu
+                secretName: tls-realtime-parking-bz
+            hosts:
+              - host: realtime-parking-bz.api.dev.testingmachine.eu
+                paths:
+                  - path: /
+                    pathType: Prefix
+          EOF
+          yq -i '. *= load("override.yml")' ${{ env.VALUES_YAML }}
+
+      - name: Deploy on cluster
+        uses: noi-techpark/github-actions/helm-deploy@v2
         with:
-          hosts: 'test'
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          docker-username: 'noi-techpark-bot'
-          docker-password: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
-          project-name: ${{ env.PROJECT_NAME }}
+          k8s-name: ${{ env.K8S_NAME }}
+          k8s-namespace: ${{ env.KUBERNETES_NAMESPACE }}
+          chart-path: infrastructure/helm/template
+          values-file: ${{ env.VALUES_YAML }}
+          aws-access-key-id: ${{ secrets.AWS_DEV_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_DEV_ACCESS_KEY_SECRET }}
+          aws-eks-cluster-name: aws-main-eu-01
+          aws-region: eu-west-1
 
   deploy-prod:
-    runs-on: ubuntu-22.04
     if: github.ref == 'refs/heads/prod'
-    concurrency: deploy-prod
+    needs: build
+    runs-on: ubuntu-24.04
+    concurrency: ${{ env.K8S_NAME }}-deploy-prod
+    environment: prod
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Create .env file
-        uses: noi-techpark/github-actions/env-file@v2
-        env:
-          X_COMPOSE_PROJECT_NAME: ${{ env.PROJECT_NAME }}
-          X_DOCKER_IMAGE: ${{ env.DOCKER_IMAGE }}
-          X_DOCKER_TAG: ${{ env.DOCKER_TAG }}
-            
-          X_SERVER_PORT: 1094
+      - name: Write environment-specific Helm values
+        run: |
+          cat <<EOF > override.yml
+          image:
+            repository: ${{ env.DOCKER_IMAGE }}
+            tag: ${{ env.DOCKER_TAG }}
+            pullPolicy: IfNotPresent
+          env:
+            GIN_MODE: release
+            LOG_LEVEL: WARNING
+            NINJA_BASE_URL: https://mobility.api.opendatahub.com
+            NINJA_REFERER: realtime-parking-bz-shim
+            DEFAULT_THRESHOLD: "10"
+            STATION_CODES: "103,104,105,106,107,108,115,116,parking-bz:8:0,609883_0"
+          ingress:
+            enabled: true
+            annotations:
+              cert-manager.io/issuer: "letsencrypt-prod"
+            className: nginx
+            tls:
+              - hosts:
+                  - realtime-parking-bz.api.opendatahub.com
+                secretName: tls-realtime-parking-bz
+            hosts:
+              - host: realtime-parking-bz.api.opendatahub.com
+                paths:
+                  - path: /
+                    pathType: Prefix
+          EOF
+          yq -i '. *= load("override.yml")' ${{ env.VALUES_YAML }}
 
-          X_GIN_MODE: release
-          X_LOG_LEVEL: WARNING
-
-          X_NINJA_BASE_URL: https://mobility.api.opendatahub.com
-          X_NINJA_REFERER: realtime-parking-bz-shim
-          X_THRESHOLD: 10
-          X_STATION_CODES: "103,104,105,106,107,108,115,116,parking-bz:8:0,609883_0"
-
-      - name: Build and push images
-        uses: noi-techpark/github-actions/docker-build-and-push@v2
+      - name: Deploy on cluster
+        uses: noi-techpark/github-actions/helm-deploy@v2
         with:
-          docker-username: ${{ github.actor }}
-          docker-password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Deploy application
-        uses: noi-techpark/github-actions/docker-deploy@v2
-        with:
-          hosts: 'prod'
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          docker-username: 'noi-techpark-bot'
-          docker-password: ${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}
-          project-name: ${{ env.PROJECT_NAME }}
+          k8s-name: ${{ env.K8S_NAME }}
+          k8s-namespace: ${{ env.KUBERNETES_NAMESPACE }}
+          chart-path: infrastructure/helm/template
+          values-file: ${{ env.VALUES_YAML }}
+          aws-access-key-id: ${{ secrets.AWS_PROD_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_PROD_ACCESS_KEY_SECRET }}
+          aws-eks-cluster-name: aws-main-eu-01
+          aws-region: eu-west-1

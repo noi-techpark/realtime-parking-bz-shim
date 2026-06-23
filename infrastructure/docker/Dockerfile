@@ -1,4 +1,4 @@
-FROM golang:1.23-bookworm AS base
+FROM golang:1.25-bookworm AS base
 
 # build executable
 FROM base AS build-env

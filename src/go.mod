@@ -1,7 +1,8 @@
 module opendatahub/realtime-parking-bz-shim
 
-go 1.23
-toolchain go1.24.1
+go 1.25
+
+toolchain go1.25.4
 
 require (
 	github.com/gin-gonic/gin v1.10.0
