@@ -131,7 +131,7 @@ func shim(c *gin.Context) {
 
 // shimV2 supports:
 //   - ?threshold=N  override the zero-display threshold (defaults to DEFAULT_THRESHOLD env)
-//   - ?where=...    ODH where-filter passed through as-is (defaults to sactive.eq.true)
+//   - ?where=...    ODH where-filter; sactive.eq.true is always appended
 func shimV2(c *gin.Context) {
 	threshold := defaultThreshold
 	if tStr := c.Query("threshold"); tStr != "" {
@@ -143,10 +143,12 @@ func shimV2(c *gin.Context) {
 		threshold = t
 	}
 
+	const defaultFilters = "sactive.eq.true"
 	whereFilter := c.Query("where")
-	if whereFilter == "" {
-		whereFilter = "sactive.eq.true"
+	if whereFilter != "" {
+		whereFilter += ","
 	}
+	whereFilter += defaultFilters
 
 	res := ninja.NinjaResponse[[]any]{Offset: 0, Limit: 200}
 
