@@ -8,7 +8,8 @@ env:
   DOCKER_TAG: ${{ github.sha }}
   KUBERNETES_NAMESPACE: parking
   K8S_NAME: realtime-parking-bz-shim
-  VALUES_YAML: infrastructure/helm/values.yaml
+  VALUES_YAML_TEST: infrastructure/helm/values.testing.yaml
+  VALUES_YAML_PROD: infrastructure/helm/values.prod.yaml
 
 jobs:
   build:
@@ -36,36 +37,8 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Write environment-specific Helm values
-        run: |
-          cat <<EOF > override.yml
-          image:
-            repository: ${{ env.DOCKER_IMAGE }}
-            tag: ${{ env.DOCKER_TAG }}
-            pullPolicy: IfNotPresent
-          env:
-            GIN_MODE: release
-            LOG_LEVEL: WARNING
-            NINJA_BASE_URL: https://mobility.api.opendatahub.testingmachine.eu
-            NINJA_REFERER: realtime-parking-bz-shim
-            DEFAULT_THRESHOLD: "10"
-            STATION_CODES: "103,104,105,106,107,108,115,116,parking-bz:8:0,609883_0,108"
-          ingress:
-            enabled: true
-            annotations:
-              cert-manager.io/issuer: "letsencrypt-prod"
-            className: nginx
-            tls:
-              - hosts:
-                  - realtime-parking-bz.api.dev.testingmachine.eu
-                secretName: tls-realtime-parking-bz
-            hosts:
-              - host: realtime-parking-bz.api.dev.testingmachine.eu
-                paths:
-                  - path: /
-                    pathType: Prefix
-          EOF
-          yq -i '. *= load("override.yml")' ${{ env.VALUES_YAML }}
+      - name: Set image tag
+        run: yq -i '.image.tag = "${{ env.DOCKER_TAG }}"' ${{ env.VALUES_YAML_TEST }}
 
       - name: Deploy on cluster
         uses: noi-techpark/github-actions/helm-deploy@v2
@@ -73,7 +46,7 @@ jobs:
           k8s-name: ${{ env.K8S_NAME }}
           k8s-namespace: ${{ env.KUBERNETES_NAMESPACE }}
           chart-path: infrastructure/helm/template
-          values-file: ${{ env.VALUES_YAML }}
+          values-file: ${{ env.VALUES_YAML_TEST }}
           aws-access-key-id: ${{ secrets.AWS_DEV_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_DEV_ACCESS_KEY_SECRET }}
           aws-eks-cluster-name: aws-main-eu-01
@@ -88,36 +61,8 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Write environment-specific Helm values
-        run: |
-          cat <<EOF > override.yml
-          image:
-            repository: ${{ env.DOCKER_IMAGE }}
-            tag: ${{ env.DOCKER_TAG }}
-            pullPolicy: IfNotPresent
-          env:
-            GIN_MODE: release
-            LOG_LEVEL: WARNING
-            NINJA_BASE_URL: https://mobility.api.opendatahub.com
-            NINJA_REFERER: realtime-parking-bz-shim
-            DEFAULT_THRESHOLD: "10"
-            STATION_CODES: "103,104,105,106,107,108,115,116,parking-bz:8:0,609883_0"
-          ingress:
-            enabled: true
-            annotations:
-              cert-manager.io/issuer: "letsencrypt-prod"
-            className: nginx
-            tls:
-              - hosts:
-                  - realtime-parking-bz.api.opendatahub.com
-                secretName: tls-realtime-parking-bz
-            hosts:
-              - host: realtime-parking-bz.api.opendatahub.com
-                paths:
-                  - path: /
-                    pathType: Prefix
-          EOF
-          yq -i '. *= load("override.yml")' ${{ env.VALUES_YAML }}
+      - name: Set image tag
+        run: yq -i '.image.tag = "${{ env.DOCKER_TAG }}"' ${{ env.VALUES_YAML_PROD }}
 
       - name: Deploy on cluster
         uses: noi-techpark/github-actions/helm-deploy@v2
@@ -125,7 +70,7 @@ jobs:
           k8s-name: ${{ env.K8S_NAME }}
           k8s-namespace: ${{ env.KUBERNETES_NAMESPACE }}
           chart-path: infrastructure/helm/template
-          values-file: ${{ env.VALUES_YAML }}
+          values-file: ${{ env.VALUES_YAML_PROD }}
           aws-access-key-id: ${{ secrets.AWS_PROD_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_PROD_ACCESS_KEY_SECRET }}
           aws-eks-cluster-name: aws-main-eu-01

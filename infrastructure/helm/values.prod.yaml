@@ -1,0 +1,48 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/noi-techpark/realtime-parking-bz-shim/realtime-parking-bz-shim
+  pullPolicy: IfNotPresent
+  tag: ""
+
+imagePullSecrets:
+  - name: container-registry-r
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: true
+  annotations:
+    cert-manager.io/issuer: "letsencrypt-prod"
+  className: nginx
+  tls:
+    - hosts:
+        - parking-bz-realtime.opendatahub.com
+      secretName: tls-realtime-parking-bz
+  hosts:
+    - host: parking-bz-realtime.opendatahub.com
+      paths:
+        - path: /
+          pathType: Prefix
+
+env:
+  GIN_MODE: release
+  LOG_LEVEL: WARNING
+  NINJA_BASE_URL: https://mobility.api.opendatahub.com
+  NINJA_REFERER: realtime-parking-bz-shim
+  DEFAULT_THRESHOLD: "10"
+  STATION_CODES: "103,104,105,106,107,108,115,116,parking-bz:8:0,609883_0"
+
+resources: {}
+
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
