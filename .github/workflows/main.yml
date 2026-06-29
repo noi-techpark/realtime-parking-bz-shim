@@ -31,8 +31,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-24.04
-    concurrency: ${{ env.K8S_NAME }}-deploy-test
-    environment: test
+    concurrency: deploy-test
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
@@ -84,8 +83,7 @@ jobs:
     if: github.ref == 'refs/heads/prod'
     needs: build
     runs-on: ubuntu-24.04
-    concurrency: ${{ env.K8S_NAME }}-deploy-prod
-    environment: prod
+    concurrency: deploy-prod
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4
