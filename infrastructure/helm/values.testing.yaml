@@ -22,10 +22,10 @@ ingress:
   className: nginx
   tls:
     - hosts:
-        - realtime-parking-bz.api.dev.testingmachine.eu
+        - realtime-parking-bz.opendatahub.testingmachine.eu
       secretName: tls-realtime-parking-bz
   hosts:
-    - host: realtime-parking-bz.api.dev.testingmachine.eu
+    - host: realtime-parking-bz.opendatahub.testingmachine.eu
       paths:
         - path: /
           pathType: Prefix
