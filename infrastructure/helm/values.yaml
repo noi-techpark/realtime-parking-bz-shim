@@ -5,8 +5,7 @@ image:
   pullPolicy: IfNotPresent
   tag: ""
 
-imagePullSecrets:
-  - name: container-registry-r
+imagePullSecrets: []
 
 nameOverride: ""
 fullnameOverride: ""
@@ -32,7 +31,7 @@ ingress:
 
 env:
   GIN_MODE: release
-  LOG_LEVEL: WARNING
+  LOG_LEVEL: INFO
   NINJA_BASE_URL: https://mobility.api.opendatahub.testingmachine.eu
   NINJA_REFERER: realtime-parking-bz-shim
   DEFAULT_THRESHOLD: "10"
