@@ -4,6 +4,7 @@
 package main
 
 import (
+	_ "embed"
 	"log/slog"
 	"net/http"
 	"os"
@@ -17,7 +18,28 @@ import (
 	"opendatahub/realtime-parking-bz-shim/ninja"
 )
 
-type OdhParking struct {
+//go:embed docs/swagger.yaml
+var openapiSpec []byte
+
+//go:embed docs/redoc.html
+var redocPage []byte
+
+// ParkingStation is a single station entry as returned by the shim.
+type ParkingStation struct {
+	Scode      string `json:"scode" example:"103"`
+	Sname      string `json:"sname" example:"P03 - Piazza Walther"`
+	Mvalue     int32  `json:"mvalue" example:"42"`
+	Mvalidtime string `json:"mvalidtime" example:"2026-08-05T11:40:00.000+0000"`
+}
+
+// ShimResponse is the response envelope returned by the shim endpoints.
+type ShimResponse struct {
+	Offset int64            `json:"offset" example:"0"`
+	Limit  int64            `json:"limit" example:"200"`
+	Data   []ParkingStation `json:"data"`
+}
+
+type OpenDataHubParking struct {
 	Scode   string `json:"scode"`
 	Sname   string `json:"sname"`
 	Sorigin string `json:"sorigin"`
@@ -51,6 +73,12 @@ var defaultThresholdStr string = os.Getenv("DEFAULT_THRESHOLD")
 var stationString string
 var defaultThreshold int
 
+// @title Realtime Parking Shim API
+// @version 1.0
+// @description.markdown api
+// @BasePath /
+// @externalDocs.description GitHub repository
+// @externalDocs.url https://github.com/noi-techpark/realtime-parking-bz-shim
 func main() {
 	InitLogger()
 	r := gin.New()
@@ -83,17 +111,37 @@ func main() {
 	r.GET("/", shim)
 	r.GET("/health", health)
 	r.GET("/v2/", shimV2)
+	r.GET("/openapi.yaml", func(c *gin.Context) {
+		c.Data(http.StatusOK, "text/yaml; charset=utf-8", openapiSpec)
+	})
+	r.GET("/docs", func(c *gin.Context) {
+		c.Data(http.StatusOK, "text/html; charset=utf-8", redocPage)
+	})
 	r.Run()
 }
 
+// health godoc
+// @Summary Health check
+// @Tags health
+// @Success 200
+// @Router /health [get]
 func health(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
+// shim godoc
+// @Summary Parking shim
+// @Description Returns parking station availability for a pre-configured set of stations. This is the legacy version of this API and is considered deprecated
+// @Tags parking
+// @Produce json
+// @Success 200 {object} ShimResponse
+// @Failure 500
+// @Deprecated
+// @Router / [get]
 func shim(c *gin.Context) {
 	res := ninja.NinjaResponse[[]any]{Offset: 0, Limit: 200}
 
-	parking, err := getOdhParking()
+	parking, err := getOpenDataHubParking()
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 	}
@@ -129,9 +177,17 @@ func shim(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
-// shimV2 supports:
-//   - ?threshold=N  override the zero-display threshold (defaults to DEFAULT_THRESHOLD env)
-//   - ?where=...    ODH where-filter; sactive.eq.true is always appended
+// shimV2 godoc
+// @Summary Parking shim (v2)
+// @Description Returns parking availability filtered by a where-expression, with a configurable zero-display threshold.
+// @Tags parking
+// @Produce json
+// @Param threshold query int false "Override the zero-display threshold (default: 10)"
+// @Param where query string false "Where-filter, forwarded as-is to the upstream Timeseries API where parameter (see [the timeseries api swagger](https://swagger.opendatahub.com/?urls.primaryName=Timeseries+-+mobility.api.opendatahub.com#/Timeseries/get_v2__representation___stationTypes___dataTypes__latest)); sactive.eq.true is always appended"
+// @Success 200 {object} ShimResponse
+// @Failure 400
+// @Failure 500
+// @Router /v2/ [get]
 func shimV2(c *gin.Context) {
 	threshold := defaultThreshold
 	if tStr := c.Query("threshold"); tStr != "" {
@@ -152,7 +208,7 @@ func shimV2(c *gin.Context) {
 
 	res := ninja.NinjaResponse[[]any]{Offset: 0, Limit: 200}
 
-	parking, err := getOdhParkingV2(whereFilter)
+	parking, err := getOpenDataHubParkingV2(whereFilter)
 	if err != nil {
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -184,7 +240,7 @@ func shimV2(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
-func getOdhParking() ([]OdhParking, error) {
+func getOpenDataHubParking() ([]OpenDataHubParking, error) {
 	req := ninja.DefaultNinjaRequest()
 	req.Limit = -1
 	req.StationTypes = []string{"ParkingStation"}
@@ -192,19 +248,19 @@ func getOdhParking() ([]OdhParking, error) {
 	req.Where = "and(sactive.eq.true,scode.in.(" + stationString + "))"
 	req.DataTypes = []string{"occupied"}
 
-	var res ninja.NinjaResponse[[]OdhParking]
+	var res ninja.NinjaResponse[[]OpenDataHubParking]
 	err := ninja.Latest(req, &res)
 	return res.Data, err
 }
 
-func getOdhParkingV2(whereFilter string) ([]OdhParking, error) {
+func getOpenDataHubParkingV2(whereFilter string) ([]OpenDataHubParking, error) {
 	req := ninja.DefaultNinjaRequest()
 	req.Limit = -1
 	req.StationTypes = []string{"ParkingStation"}
 	req.Where = whereFilter
 	req.DataTypes = []string{"occupied"}
 
-	var res ninja.NinjaResponse[[]OdhParking]
+	var res ninja.NinjaResponse[[]OpenDataHubParking]
 	err := ninja.Latest(req, &res)
 	return res.Data, err
 }
