@@ -1,0 +1,6 @@
+apiVersion: v2
+name: realtime-parking-bz-shim
+description: Realtime parking Bolzano shim API
+type: application
+version: 0.1.0
+appVersion: "latest"

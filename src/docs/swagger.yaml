@@ -1,0 +1,99 @@
+basePath: /
+definitions:
+  main.ParkingStation:
+    properties:
+      mvalidtime:
+        example: 2026-08-05T11:40:00.000+0000
+        type: string
+      mvalue:
+        example: 42
+        type: integer
+      scode:
+        example: "103"
+        type: string
+      sname:
+        example: P03 - Piazza Walther
+        type: string
+    type: object
+  main.ShimResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/main.ParkingStation'
+        type: array
+      limit:
+        example: 200
+        type: integer
+      offset:
+        example: 0
+        type: integer
+    type: object
+externalDocs:
+  description: GitHub repository
+  url: https://github.com/noi-techpark/realtime-parking-bz-shim
+info:
+  contact: {}
+  description: |
+    This API exposes parking stations from the Open Data Hub timeseries API (mobility.api.opendatahub.com) in a condensed custom format for VMS displays.
+
+    This API is considered an [R&D prototype](https://opendatahub.com/lifecycle-management/), and thus we cannot guarantee future availability nor stability.
+
+    If you intend to use this API for production deployments, please contact the Open Data Hub team help@opendatahub.com
+  title: Realtime Parking Shim API
+  version: "1.0"
+paths:
+  /:
+    get:
+      deprecated: true
+      description: Returns parking station availability for a pre-configured set of
+        stations. This is the legacy version of this API and is considered deprecated
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.ShimResponse'
+        "500":
+          description: Internal Server Error
+      summary: Parking shim
+      tags:
+      - parking
+  /health:
+    get:
+      responses:
+        "200":
+          description: OK
+      summary: Health check
+      tags:
+      - health
+  /v2/:
+    get:
+      description: Returns parking availability filtered by a where-expression, with
+        a configurable zero-display threshold.
+      parameters:
+      - description: 'Override the zero-display threshold (default: 10)'
+        in: query
+        name: threshold
+        type: integer
+      - description: Where-filter, forwarded as-is to the upstream Timeseries API
+          where parameter (see [the timeseries api swagger](https://swagger.opendatahub.com/?urls.primaryName=Timeseries+-+mobility.api.opendatahub.com#/Timeseries/get_v2__representation___stationTypes___dataTypes__latest));
+          sactive.eq.true is always appended
+        in: query
+        name: where
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.ShimResponse'
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+      summary: Parking shim (v2)
+      tags:
+      - parking
+swagger: "2.0"
